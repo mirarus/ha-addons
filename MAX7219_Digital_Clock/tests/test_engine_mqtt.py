@@ -38,6 +38,13 @@ class TestEngine(unittest.TestCase):
         state = engine.get_state()
         self.assertEqual(len(state["schedules"]), 1)
 
+    def test_spi_device_settings_reflected_in_state(self):
+        engine = DisplayEngine(settings={"spi_port": 0, "spi_device": 1})
+        state = engine.get_state()
+        self.assertEqual(state["spi_port"], 0)
+        self.assertEqual(state["spi_device"], 1)
+        self.assertIn("CE1", state["cs_pin"])
+
 
 class DummyEngine:
     def __init__(self):

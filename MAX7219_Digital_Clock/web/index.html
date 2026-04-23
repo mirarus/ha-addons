@@ -88,7 +88,22 @@
 
     <h2>State</h2>
     <pre id="mqttStatusBox">MQTT: loading...</pre>
+    <pre id="pinStatusBox">Pins: loading...</pre>
     <pre id="stateBox">Loading...</pre>
+
+    <h2>MAX7219 Pin Baglanti Rehberi</h2>
+    <table>
+      <thead>
+        <tr><th>MAX7219 Pin</th><th>Raspberry Pi Pin</th><th>Not</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>DIN</td><td>GPIO10 (MOSI / Pin 19)</td><td>SPI data</td></tr>
+        <tr><td>CK/CLK</td><td>GPIO11 (SCLK / Pin 23)</td><td>SPI clock</td></tr>
+        <tr><td>CS/LOAD</td><td>GPIO8 (CE0 / Pin 24) veya GPIO7 (CE1 / Pin 26)</td><td>`spi_device` ile secilir</td></tr>
+        <tr><td>VCC</td><td>5V (Pin 2 veya 4)</td><td>Modulunuze gore 3.3V/5V kontrol edin</td></tr>
+        <tr><td>GND</td><td>GND (ornek Pin 6)</td><td>Ortak toprak zorunlu</td></tr>
+      </tbody>
+    </table>
     <div class="footer">MQTT namespace: mirarus/max7219</div>
   </div>
 
@@ -127,6 +142,7 @@
       const data = await api("api/state");
       byId("stateBox").textContent = JSON.stringify(data, null, 2);
       updateMqttStatus(data.mqtt || {});
+      updatePinStatus(data.state || {});
       fillFormFromState(data.state || {});
       renderSchedules((data.state || {}).schedules || []);
     }
@@ -137,6 +153,13 @@
       const host = mqtt.host || "-";
       const port = mqtt.port || "-";
       byId("mqttStatusBox").textContent = `MQTT: ${connected} | reason: ${reason} | broker: ${host}:${port}`;
+    }
+
+    function updatePinStatus(state) {
+      const spiPort = state.spi_port ?? 0;
+      const spiDevice = state.spi_device ?? 0;
+      const csPin = state.cs_pin || (Number(spiDevice) === 1 ? "GPIO7 (CE1)" : "GPIO8 (CE0)");
+      byId("pinStatusBox").textContent = `Pins: DIN=GPIO10, CK=GPIO11, CS=${csPin} | spi_port=${spiPort} spi_device=${spiDevice}`;
     }
 
     function fillFormFromState(state) {

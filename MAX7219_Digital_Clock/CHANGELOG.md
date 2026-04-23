@@ -2,6 +2,18 @@
 
 All notable changes to this add-on are documented in this file.
 
+## 2.6.1
+
+- Added UI pin-connection guide for MAX7219 (`DIN`, `CK`, `CS`, `VCC`, `GND`).
+- Added live pin status line in Web UI showing active `spi_port`, `spi_device`, and resolved `CS` pin.
+
+## 2.6.0
+
+- Added SPI pin/device configuration options (`spi_port`, `spi_device`) to add-on config.
+- Added CE0/CE1 support by exposing `/dev/spidev0.0` and `/dev/spidev0.1` device mappings.
+- Added SPI metadata (`spi_port`, `spi_device`, `cs_pin`) to runtime state payload.
+- Documented Raspberry Pi MAX7219 pin mapping and CS selection in README.
+
 ## 2.5.2
 
 - Synced runtime GitHub version-check parsing with nested `github.*` options in `config.json`.

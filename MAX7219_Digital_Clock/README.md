@@ -129,7 +129,7 @@ Not:
 - `telemetry.enabled`, `telemetry.interval`
 - `default_text`, `default_mode`, `default_effect`
 - `brightness`, `speed`
-- `cascaded`, `block_orientation`, `rotate`
+- `cascaded`, `spi_port`, `spi_device`, `block_orientation`, `rotate`
 - `github.version_check` (GitHub latest release/tag kontrolu)
 - `github.repo` (ornek: `mirarus/ha-addons`)
 - `github.check_timeout` (saniye)
@@ -171,3 +171,17 @@ Sonuc `tele/update` payload icine su alanlarla eklenir:
 - Ingress-only UI kullanimi hedeflenmistir.
 - MQTT TLS bu release'de zorunlu degildir; local broker + auth onerilir.
 - Add-on kapanisinda graceful shutdown uygulanir (SIGTERM).
+
+## MAX7219 Pin Tanimlama (Raspberry Pi SPI)
+
+SPI ile MAX7219 kullaniminda temel pinler:
+
+- MOSI: `GPIO10` (Pin 19)
+- SCLK: `GPIO11` (Pin 23)
+- GND: herhangi bir GND pin
+- VCC: 5V (modulunuze gore 3.3V/5V)
+- CS/LOAD:
+  - `spi_device: 0` -> `GPIO8 (CE0, Pin 24)`
+  - `spi_device: 1` -> `GPIO7 (CE1, Pin 26)`
+
+Add-on icinden `spi_device` degistirerek CE0/CE1 secimi yapabilirsiniz.

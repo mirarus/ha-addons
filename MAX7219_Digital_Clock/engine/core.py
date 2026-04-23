@@ -56,6 +56,8 @@ class DisplayEngine:
             "last_error": "",
         }
         self._frame = 0
+        self.spi_port = self._clamp_int(settings.get("spi_port", 0), 0, 1)
+        self.spi_device = self._clamp_int(settings.get("spi_device", 0), 0, 1)
         self.device = self._build_device(settings)
         self.device.contrast(self.state["brightness"])
 
@@ -69,7 +71,7 @@ class DisplayEngine:
         rotate = self._clamp_int(settings.get("rotate", 0), 0, 3)
 
         try:
-            serial = spi(port=0, device=0, gpio=noop())
+            serial = spi(port=self.spi_port, device=self.spi_device, gpio=noop())
             return max7219(
                 serial,
                 cascaded=cascaded,
@@ -102,6 +104,9 @@ class DisplayEngine:
         with self._lock:
             snapshot = copy.deepcopy(self.state)
         snapshot["schedules"] = self.scheduler.list_events()
+        snapshot["spi_port"] = self.spi_port
+        snapshot["spi_device"] = self.spi_device
+        snapshot["cs_pin"] = "GPIO8 (CE0)" if self.spi_device == 0 else "GPIO7 (CE1)"
         return snapshot
 
     def get_health(self):
