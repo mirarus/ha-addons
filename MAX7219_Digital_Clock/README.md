@@ -118,17 +118,20 @@ Not:
 
 `config.json` schema uzerinden yonetilir. Onemli alanlar:
 
-- `mqtt_host`, `mqtt_port`, `mqtt_username`, `mqtt_password`
-- `mqtt_auto` (true ise host bos oldugunda otomatik `core-mosquitto` kullanir)
-- `mqtt_discovery` (Home Assistant MQTT Discovery publish eder)
-- `mqtt_discovery_prefix` (varsayilan: `homeassistant`)
-- `mqtt_reconnect_min_delay`, `mqtt_reconnect_max_delay` (otomatik reconnect hizi)
-- `mqtt_initial_retry_delay`, `mqtt_retry_max_delay` (ilk baglanti deneme backoff hizi)
-- `mqtt_namespace` (varsayilan: `mirarus/max7219`)
+- `mqtt.host`, `mqtt.port`, `mqtt.username`, `mqtt.password`
+- `mqtt.auto` (true ise host bos oldugunda otomatik `core-mosquitto` kullanir)
+- `mqtt.discovery` (Home Assistant MQTT Discovery publish eder)
+- `mqtt.discovery_prefix` (varsayilan: `homeassistant`)
+- `mqtt.reconnect_min_delay`, `mqtt.reconnect_max_delay` (otomatik reconnect hizi)
+- `mqtt.initial_retry_delay`, `mqtt.retry_max_delay` (ilk baglanti deneme backoff hizi)
+- `mqtt.namespace` (varsayilan: `mirarus/max7219`)
+- `default_text`, `default_mode`, `default_effect`
+- `brightness`, `speed`
+- `cascaded`, `block_orientation`, `rotate`
 
 ## MQTT Discovery
 
-`mqtt_discovery: true` oldugunda add-on baglandiginda su entity config'lerini publish eder:
+`mqtt.discovery: true` oldugunda add-on baglandiginda su entity config'lerini publish eder:
 
 - Text: MAX7219 Text
 - Select: MAX7219 Mode
@@ -137,9 +140,6 @@ Not:
 - Sensor: MAX7219 MQTT Status
 
 Discovery prefix varsayilan olarak `homeassistant` kullanir.
-- `default_text`, `default_mode`, `default_effect`
-- `brightness`, `speed`
-- `cascaded`, `block_orientation`, `rotate`
 
 ## Operasyon Notlari
 

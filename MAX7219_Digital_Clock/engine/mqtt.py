@@ -52,24 +52,27 @@ class MQTTHandler:
     def __init__(self, engine, settings=None):
         self.engine = engine
         self.settings = settings or {}
+        self.mqtt_settings = self.settings.get("mqtt") if isinstance(self.settings.get("mqtt"), dict) else {}
         self.stop_event = threading.Event()
         self.connected_event = threading.Event()
         self.telemetry_thread = None
         self._status_lock = threading.Lock()
 
-        base_namespace = str(self.settings.get("mqtt_namespace", "mirarus/max7219")).strip("/")
+        base_namespace = str(self._mqtt_opt("namespace", "mqtt_namespace", "mirarus/max7219")).strip("/")
         self.topics = {
             "cmnd": f"{base_namespace}/cmnd/#",
             "cmnd_root": f"{base_namespace}/cmnd",
             "stat_state": f"{base_namespace}/stat/state",
             "tele_health": f"{base_namespace}/tele/health",
         }
-        self.discovery_enabled = bool(self.settings.get("mqtt_discovery", True))
-        self.discovery_prefix = str(self.settings.get("mqtt_discovery_prefix", "homeassistant")).strip("/") or "homeassistant"
+        self.discovery_enabled = self._to_bool(self._mqtt_opt("discovery", "mqtt_discovery", True))
+        self.discovery_prefix = str(
+            self._mqtt_opt("discovery_prefix", "mqtt_discovery_prefix", "homeassistant")
+        ).strip("/") or "homeassistant"
         self.device_id = str(self.settings.get("device_id", "max7219_display")).strip() or "max7219_display"
         self.device_name = str(self.settings.get("device_name", "MAX7219 Display")).strip() or "MAX7219 Display"
         self._discovery_published = False
-        self.mqtt_auto = bool(self.settings.get("mqtt_auto", True))
+        self.mqtt_auto = self._to_bool(self._mqtt_opt("auto", "mqtt_auto", True))
         self.connection_status = {
             "connected": False,
             "code": None,
@@ -85,11 +88,11 @@ class MQTTHandler:
             LOGGER.warning("paho-mqtt unavailable, MQTT running in noop mode")
         elif hasattr(self.client, "reconnect_delay_set"):
             # Keep reconnect responsive but avoid tight loops.
-            min_delay = max(1, int(self.settings.get("mqtt_reconnect_min_delay", 1)))
-            max_delay = max(min_delay, int(self.settings.get("mqtt_reconnect_max_delay", 8)))
+            min_delay = max(1, int(self._mqtt_opt("reconnect_min_delay", "mqtt_reconnect_min_delay", 1)))
+            max_delay = max(min_delay, int(self._mqtt_opt("reconnect_max_delay", "mqtt_reconnect_max_delay", 8)))
             self.client.reconnect_delay_set(min_delay=min_delay, max_delay=max_delay)
-        username = str(self.settings.get("mqtt_username") or "").strip()
-        password = str(self.settings.get("mqtt_password") or "").strip()
+        username = str(self._mqtt_opt("username", "mqtt_username", "") or "").strip()
+        password = str(self._mqtt_opt("password", "mqtt_password", "") or "").strip()
         if username:
             self.client.username_pw_set(username, password=password)
 
@@ -103,15 +106,30 @@ class MQTTHandler:
         self.client.on_disconnect = self._on_disconnect
         self.client.on_message = self._on_message
 
+    @staticmethod
+    def _to_bool(value):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+        return False
+
+    def _mqtt_opt(self, nested_key, legacy_key, default=None):
+        if nested_key in self.mqtt_settings:
+            return self.mqtt_settings.get(nested_key)
+        return self.settings.get(legacy_key, default)
+
     def _resolve_broker(self):
-        configured_host = str(self.settings.get("mqtt_host", "")).strip()
+        configured_host = str(self._mqtt_opt("host", "mqtt_host", "")).strip()
         if configured_host:
             host = configured_host
         elif self.mqtt_auto:
             host = "core-mosquitto"
         else:
             host = "core-mosquitto"
-        port = int(self.settings.get("mqtt_port", 1883))
+        port = int(self._mqtt_opt("port", "mqtt_port", 1883))
         return host, port
 
     def _update_connection_status(self, **kwargs):
@@ -143,8 +161,8 @@ class MQTTHandler:
             LOGGER.exception("MQTT stop failed")
 
     def _connect_with_retry(self, host, port):
-        backoff = float(self.settings.get("mqtt_initial_retry_delay", 0.5))
-        max_backoff = float(self.settings.get("mqtt_retry_max_delay", 5.0))
+        backoff = float(self._mqtt_opt("initial_retry_delay", "mqtt_initial_retry_delay", 0.5))
+        max_backoff = float(self._mqtt_opt("retry_max_delay", "mqtt_retry_max_delay", 5.0))
         backoff = max(0.2, min(backoff, max_backoff))
         while not self.stop_event.is_set():
             try:

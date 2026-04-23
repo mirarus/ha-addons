@@ -56,18 +56,18 @@ class DummyEngine:
 
 class TestMQTTHandler(unittest.TestCase):
     def test_command_parsing(self):
-        handler = MQTTHandler(DummyEngine(), settings={"mqtt_namespace": "mirarus/max7219"})
+        handler = MQTTHandler(DummyEngine(), settings={"mqtt": {"namespace": "mirarus/max7219"}})
         self.assertEqual(handler._command_from_topic("mirarus/max7219/cmnd/text"), "text")
         self.assertEqual(handler._parse_payload("brightness", "15"), 15)
 
     def test_auto_broker_resolution(self):
-        handler = MQTTHandler(DummyEngine(), settings={"mqtt_auto": True, "mqtt_host": "", "mqtt_port": 1883})
+        handler = MQTTHandler(DummyEngine(), settings={"mqtt": {"auto": True, "host": "", "port": 1883}})
         host, port = handler._resolve_broker()
         self.assertEqual(host, "core-mosquitto")
         self.assertEqual(port, 1883)
 
     def test_connection_status_snapshot(self):
-        handler = MQTTHandler(DummyEngine(), settings={"mqtt_namespace": "mirarus/max7219"})
+        handler = MQTTHandler(DummyEngine(), settings={"mqtt": {"namespace": "mirarus/max7219"}})
         status = handler.get_connection_status()
         self.assertIn("connected", status)
         self.assertIn("reason", status)
@@ -76,9 +76,11 @@ class TestMQTTHandler(unittest.TestCase):
         handler = MQTTHandler(
             DummyEngine(),
             settings={
-                "mqtt_namespace": "mirarus/max7219",
-                "mqtt_discovery": True,
-                "mqtt_discovery_prefix": "homeassistant",
+                "mqtt": {
+                    "namespace": "mirarus/max7219",
+                    "discovery": True,
+                    "discovery_prefix": "homeassistant",
+                },
                 "device_id": "max7219_display",
             },
         )
@@ -89,8 +91,19 @@ class TestMQTTHandler(unittest.TestCase):
         self.assertIn("device", first_payload)
         self.assertEqual(first_payload["device"]["identifiers"], ["max7219_display"])
 
+    def test_legacy_flat_keys_still_supported(self):
+        handler = MQTTHandler(
+            DummyEngine(),
+            settings={
+                "mqtt_namespace": "legacy/max7219",
+                "mqtt_discovery": False,
+            },
+        )
+        self.assertEqual(handler.topics["cmnd_root"], "legacy/max7219/cmnd")
+        self.assertFalse(handler.discovery_enabled)
+
     def test_disconnect_callback_v1_and_v2_signature(self):
-        handler = MQTTHandler(DummyEngine(), settings={"mqtt_namespace": "mirarus/max7219"})
+        handler = MQTTHandler(DummyEngine(), settings={"mqtt": {"namespace": "mirarus/max7219"}})
         handler.connected_event.set()
         handler._on_disconnect(None, None, 5)
         self.assertFalse(handler.connected_event.is_set())
