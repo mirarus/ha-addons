@@ -1,7 +1,7 @@
 {
   "name": "MAX7219 Digital Clock",
   "version": "1.0.0",
-  "slug": "MAX7219_Digital_Clock",
+  "slug": "max7219_digital_clock",
   "description": "MAX7219 LED Matrix via Raspberry Pi GPIO",
   "startup": "services",
   "boot": "auto",
