@@ -119,7 +119,7 @@ Not:
 `config.json` schema uzerinden yonetilir. Onemli alanlar:
 
 - `mqtt.host`, `mqtt.port`, `mqtt.username`, `mqtt.password`
-- `mqtt.auto` (true ise host bos oldugunda otomatik `core-mosquitto` kullanir)
+- `mqtt.auto` (true ise Supervisor MQTT servisinden host/port/username/password otomatik almaya calisir)
 - `mqtt.discovery` (Home Assistant MQTT Discovery publish eder)
 - `mqtt.discovery_prefix` (varsayilan: `homeassistant`)
 - `mqtt.reconnect_min_delay`, `mqtt.reconnect_max_delay` (otomatik reconnect hizi)
@@ -140,6 +140,16 @@ Not:
 - Sensor: MAX7219 MQTT Status
 
 Discovery prefix varsayilan olarak `homeassistant` kullanir.
+
+## MQTT Auto-Credentials (Supervisor)
+
+`mqtt.auto: true` iken add-on sirayla su kaynaklari dener:
+
+1. Home Assistant Supervisor MQTT service (`/services/mqtt`)
+2. Eksik host varsa fallback `core-mosquitto`
+3. Port fallback `1883`
+
+Web UI state ekraninda `mqtt.credential_source` alani ile hangi kaynagin kullanildigi gorulebilir.
 
 ## Operasyon Notlari
 

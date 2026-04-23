@@ -80,6 +80,7 @@ class MQTTHandler:
             "host": None,
             "port": None,
             "auto": self.mqtt_auto,
+            "credential_source": str(self.mqtt_settings.get("_source", "manual_or_defaults")),
             "last_error": "",
         }
 

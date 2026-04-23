@@ -1,6 +1,6 @@
 {
   "name": "MAX7219 Display Engine",
-  "version": "2.2.1",
+  "version": "2.3.2",
   "slug": "max7219_clock",
   "description": "Production-ready MAX7219 display engine with MQTT, effects, scheduler and Ingress UI",
   "arch": ["aarch64", "armv7", "armhf"],
@@ -11,9 +11,15 @@
   "panel_icon": "mdi:led-strip-variant",
   "panel_title": "MAX7219",
   "init": false,
+  "services": ["mqtt:want"],
   "privileged": ["SYS_RAWIO"],
   "devices": ["/dev/spidev0.0"],
-  "ports": {},
+  "ports": {
+    "8099/tcp": null
+  },
+  "ports_description": {
+    "8099/tcp": "Web UI port (make empty to disable; Ingress remains available)"
+  },
   "options": {
     "mqtt": {
       "host": "core-mosquitto",
@@ -37,8 +43,7 @@
     "speed": 0.15,
     "cascaded": 4,
     "block_orientation": 90,
-    "rotate": 0,
-    "web_port": 8099
+    "rotate": 0
   },
   "schema": {
     "mqtt": {
@@ -63,7 +68,6 @@
     "speed": "float(0.02,5)",
     "cascaded": "int(1,16)",
     "block_orientation": "int(-360,360)",
-    "rotate": "int(0,3)",
-    "web_port": "port"
+    "rotate": "int(0,3)"
   }
 }
