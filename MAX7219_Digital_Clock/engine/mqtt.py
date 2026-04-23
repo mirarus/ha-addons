@@ -41,6 +41,14 @@ class _NoopClient:
 
 
 class MQTTHandler:
+    CONNECT_REASON_TEXT = {
+        1: "unacceptable protocol version",
+        2: "identifier rejected",
+        3: "broker unavailable",
+        4: "bad username or password",
+        5: "not authorized",
+    }
+
     def __init__(self, engine, settings=None):
         self.engine = engine
         self.settings = settings or {}
@@ -59,6 +67,9 @@ class MQTTHandler:
         self.client = mqtt.Client() if mqtt else _NoopClient()
         if not mqtt:
             LOGGER.warning("paho-mqtt unavailable, MQTT running in noop mode")
+        elif hasattr(self.client, "reconnect_delay_set"):
+            # Prevent tight reconnect loops when broker rejects auth.
+            self.client.reconnect_delay_set(min_delay=2, max_delay=60)
         username = str(self.settings.get("mqtt_username") or "").strip()
         password = str(self.settings.get("mqtt_password") or "").strip()
         if username:
@@ -115,7 +126,16 @@ class MQTTHandler:
         reason_code = self._normalize_reason_code(reason_code)
         if reason_code != 0:
             self.connected_event.clear()
-            LOGGER.warning("MQTT connected with non-zero code: %s", reason_code)
+            reason_text = self.CONNECT_REASON_TEXT.get(reason_code, "unknown connect error")
+            LOGGER.warning(
+                "MQTT connect rejected (code=%s, reason=%s). Check mqtt_host/mqtt_port/mqtt_username/mqtt_password and broker ACLs.",
+                reason_code,
+                reason_text,
+            )
+            self.publish_health(
+                status="error",
+                extra={"error": f"mqtt_connect_rejected:{reason_code}", "reason": reason_text},
+            )
             return
         LOGGER.info("MQTT connected, subscribing to %s", self.topics["cmnd"])
         self.connected_event.set()
