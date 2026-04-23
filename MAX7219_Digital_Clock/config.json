@@ -1,6 +1,6 @@
 {
   "name": "MAX7219 Display Engine",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "slug": "max7219_clock",
   "description": "Production-ready MAX7219 display engine with MQTT, effects, scheduler and Ingress UI",
   "arch": ["aarch64", "armv7", "armhf"],
@@ -17,6 +17,7 @@
   "options": {
     "mqtt_host": "core-mosquitto",
     "mqtt_port": 1883,
+    "mqtt_auto": true,
     "mqtt_username": "",
     "mqtt_password": "",
     "mqtt_namespace": "mirarus/max7219",
@@ -34,6 +35,7 @@
   "schema": {
     "mqtt_host": "str",
     "mqtt_port": "port",
+    "mqtt_auto": "bool",
     "mqtt_username": "str?",
     "mqtt_password": "password?",
     "mqtt_namespace": "str",

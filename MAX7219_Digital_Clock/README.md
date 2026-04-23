@@ -119,6 +119,7 @@ Not:
 `config.json` schema uzerinden yonetilir. Onemli alanlar:
 
 - `mqtt_host`, `mqtt_port`, `mqtt_username`, `mqtt_password`
+- `mqtt_auto` (true ise host bos oldugunda otomatik `core-mosquitto` kullanir)
 - `mqtt_namespace` (varsayilan: `mirarus/max7219`)
 - `default_text`, `default_mode`, `default_effect`
 - `brightness`, `speed`

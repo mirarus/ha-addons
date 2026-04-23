@@ -60,6 +60,18 @@ class TestMQTTHandler(unittest.TestCase):
         self.assertEqual(handler._command_from_topic("mirarus/max7219/cmnd/text"), "text")
         self.assertEqual(handler._parse_payload("brightness", "15"), 15)
 
+    def test_auto_broker_resolution(self):
+        handler = MQTTHandler(DummyEngine(), settings={"mqtt_auto": True, "mqtt_host": "", "mqtt_port": 1883})
+        host, port = handler._resolve_broker()
+        self.assertEqual(host, "core-mosquitto")
+        self.assertEqual(port, 1883)
+
+    def test_connection_status_snapshot(self):
+        handler = MQTTHandler(DummyEngine(), settings={"mqtt_namespace": "mirarus/max7219"})
+        status = handler.get_connection_status()
+        self.assertIn("connected", status)
+        self.assertIn("reason", status)
+
     def test_disconnect_callback_v1_and_v2_signature(self):
         handler = MQTTHandler(DummyEngine(), settings={"mqtt_namespace": "mirarus/max7219"})
         handler.connected_event.set()

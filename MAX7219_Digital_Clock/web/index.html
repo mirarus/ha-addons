@@ -87,6 +87,7 @@
     </table>
 
     <h2>State</h2>
+    <pre id="mqttStatusBox">MQTT: loading...</pre>
     <pre id="stateBox">Loading...</pre>
     <div class="footer">MQTT namespace: mirarus/max7219</div>
   </div>
@@ -125,8 +126,17 @@
     async function refreshState() {
       const data = await api("api/state");
       byId("stateBox").textContent = JSON.stringify(data, null, 2);
+      updateMqttStatus(data.mqtt || {});
       fillFormFromState(data.state || {});
       renderSchedules((data.state || {}).schedules || []);
+    }
+
+    function updateMqttStatus(mqtt) {
+      const connected = mqtt.connected ? "connected" : "disconnected";
+      const reason = mqtt.reason || "unknown";
+      const host = mqtt.host || "-";
+      const port = mqtt.port || "-";
+      byId("mqttStatusBox").textContent = `MQTT: ${connected} | reason: ${reason} | broker: ${host}:${port}`;
     }
 
     function fillFormFromState(state) {

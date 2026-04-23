@@ -55,6 +55,7 @@ class MQTTHandler:
         self.stop_event = threading.Event()
         self.connected_event = threading.Event()
         self.telemetry_thread = None
+        self._status_lock = threading.Lock()
 
         base_namespace = str(self.settings.get("mqtt_namespace", "mirarus/max7219")).strip("/")
         self.topics = {
@@ -62,6 +63,16 @@ class MQTTHandler:
             "cmnd_root": f"{base_namespace}/cmnd",
             "stat_state": f"{base_namespace}/stat/state",
             "tele_health": f"{base_namespace}/tele/health",
+        }
+        self.mqtt_auto = bool(self.settings.get("mqtt_auto", True))
+        self.connection_status = {
+            "connected": False,
+            "code": None,
+            "reason": "not_started",
+            "host": None,
+            "port": None,
+            "auto": self.mqtt_auto,
+            "last_error": "",
         }
 
         self.client = mqtt.Client() if mqtt else _NoopClient()
@@ -85,9 +96,28 @@ class MQTTHandler:
         self.client.on_disconnect = self._on_disconnect
         self.client.on_message = self._on_message
 
-    def start(self):
-        host = str(self.settings.get("mqtt_host", "core-mosquitto"))
+    def _resolve_broker(self):
+        configured_host = str(self.settings.get("mqtt_host", "")).strip()
+        if configured_host:
+            host = configured_host
+        elif self.mqtt_auto:
+            host = "core-mosquitto"
+        else:
+            host = "core-mosquitto"
         port = int(self.settings.get("mqtt_port", 1883))
+        return host, port
+
+    def _update_connection_status(self, **kwargs):
+        with self._status_lock:
+            self.connection_status.update(kwargs)
+
+    def get_connection_status(self):
+        with self._status_lock:
+            return dict(self.connection_status)
+
+    def start(self):
+        host, port = self._resolve_broker()
+        self._update_connection_status(host=host, port=port, reason="connecting")
 
         self.client.loop_start()
         self._connect_with_retry(host, port)
@@ -96,10 +126,12 @@ class MQTTHandler:
 
     def stop(self):
         self.stop_event.set()
+        self._update_connection_status(connected=False, reason="stopping")
         try:
             self.publish_health(status="offline")
             self.client.loop_stop()
             self.client.disconnect()
+            self._update_connection_status(connected=False, reason="stopped")
         except Exception:  # pragma: no cover
             LOGGER.exception("MQTT stop failed")
 
@@ -108,8 +140,10 @@ class MQTTHandler:
         while not self.stop_event.is_set():
             try:
                 self.client.connect(host, port, keepalive=30)
+                self._update_connection_status(reason="connect_called", last_error="")
                 return
             except Exception as exc:
+                self._update_connection_status(connected=False, reason="connect_exception", last_error=str(exc))
                 LOGGER.warning("MQTT connect failed (%s), retrying in %.1fs", exc, backoff)
                 time.sleep(backoff)
                 backoff = min(backoff * 2, 30.0)
@@ -127,6 +161,7 @@ class MQTTHandler:
         if reason_code != 0:
             self.connected_event.clear()
             reason_text = self.CONNECT_REASON_TEXT.get(reason_code, "unknown connect error")
+            self._update_connection_status(connected=False, code=reason_code, reason=reason_text)
             LOGGER.warning(
                 "MQTT connect rejected (code=%s, reason=%s). Check mqtt_host/mqtt_port/mqtt_username/mqtt_password and broker ACLs.",
                 reason_code,
@@ -139,6 +174,7 @@ class MQTTHandler:
             return
         LOGGER.info("MQTT connected, subscribing to %s", self.topics["cmnd"])
         self.connected_event.set()
+        self._update_connection_status(connected=True, code=0, reason="connected", last_error="")
         client.subscribe(self.topics["cmnd"], qos=1)
         self.publish_state()
         self.publish_health(status="online")
@@ -154,6 +190,8 @@ class MQTTHandler:
         reason_code = self._normalize_reason_code(reason_code)
         _ = (client, userdata)
         self.connected_event.clear()
+        reason_text = self.CONNECT_REASON_TEXT.get(reason_code, "disconnected")
+        self._update_connection_status(connected=False, code=reason_code, reason=reason_text)
         if self.stop_event.is_set():
             return
         LOGGER.warning("MQTT disconnected with code %s", reason_code)
