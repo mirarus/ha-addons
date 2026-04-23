@@ -1,6 +1,6 @@
 {
   "name": "MAX7219 Display Engine",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "slug": "max7219_clock",
   "description": "Production-ready MAX7219 display engine with MQTT, effects, scheduler and Ingress UI",
   "arch": ["aarch64", "armv7", "armhf"],
