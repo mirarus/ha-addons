@@ -64,6 +64,11 @@ class MQTTHandler:
             "stat_state": f"{base_namespace}/stat/state",
             "tele_health": f"{base_namespace}/tele/health",
         }
+        self.discovery_enabled = bool(self.settings.get("mqtt_discovery", True))
+        self.discovery_prefix = str(self.settings.get("mqtt_discovery_prefix", "homeassistant")).strip("/") or "homeassistant"
+        self.device_id = str(self.settings.get("device_id", "max7219_display")).strip() or "max7219_display"
+        self.device_name = str(self.settings.get("device_name", "MAX7219 Display")).strip() or "MAX7219 Display"
+        self._discovery_published = False
         self.mqtt_auto = bool(self.settings.get("mqtt_auto", True))
         self.connection_status = {
             "connected": False,
@@ -180,6 +185,7 @@ class MQTTHandler:
         self.connected_event.set()
         self._update_connection_status(connected=True, code=0, reason="connected", last_error="")
         client.subscribe(self.topics["cmnd"], qos=1)
+        self.publish_discovery(force=not self._discovery_published)
         self.publish_state()
         self.publish_health(status="online")
 
@@ -272,3 +278,111 @@ class MQTTHandler:
             self.publish_state()
             self.publish_health(status="online")
             self.stop_event.wait(interval)
+
+    def _discovery_device(self):
+        return {
+            "identifiers": [self.device_id],
+            "name": self.device_name,
+            "manufacturer": "Mirarus",
+            "model": "MAX7219 Raspberry Pi",
+            "sw_version": "addon",
+        }
+
+    def _discovery_entries(self):
+        device = self._discovery_device()
+        state_topic = self.topics["stat_state"]
+        availability_topic = self.topics["tele_health"]
+        cmnd_root = self.topics["cmnd_root"]
+        return [
+            (
+                f"{self.discovery_prefix}/text/{self.device_id}_text/config",
+                {
+                    "name": "MAX7219 Text",
+                    "unique_id": f"{self.device_id}_text",
+                    "object_id": f"{self.device_id}_text",
+                    "command_topic": f"{cmnd_root}/text",
+                    "state_topic": state_topic,
+                    "value_template": "{{ value_json.text }}",
+                    "availability_topic": availability_topic,
+                    "availability_template": "{{ value_json.status }}",
+                    "payload_available": "online",
+                    "payload_not_available": "offline",
+                    "device": device,
+                },
+            ),
+            (
+                f"{self.discovery_prefix}/select/{self.device_id}_mode/config",
+                {
+                    "name": "MAX7219 Mode",
+                    "unique_id": f"{self.device_id}_mode",
+                    "object_id": f"{self.device_id}_mode",
+                    "command_topic": f"{cmnd_root}/mode",
+                    "state_topic": state_topic,
+                    "value_template": "{{ value_json.mode }}",
+                    "options": ["text", "clock"],
+                    "availability_topic": availability_topic,
+                    "availability_template": "{{ value_json.status }}",
+                    "payload_available": "online",
+                    "payload_not_available": "offline",
+                    "device": device,
+                },
+            ),
+            (
+                f"{self.discovery_prefix}/select/{self.device_id}_effect/config",
+                {
+                    "name": "MAX7219 Effect",
+                    "unique_id": f"{self.device_id}_effect",
+                    "object_id": f"{self.device_id}_effect",
+                    "command_topic": f"{cmnd_root}/effect",
+                    "state_topic": state_topic,
+                    "value_template": "{{ value_json.effect }}",
+                    "options": ["static", "scroll", "marquee", "blink", "invert", "wave"],
+                    "availability_topic": availability_topic,
+                    "availability_template": "{{ value_json.status }}",
+                    "payload_available": "online",
+                    "payload_not_available": "offline",
+                    "device": device,
+                },
+            ),
+            (
+                f"{self.discovery_prefix}/number/{self.device_id}_brightness/config",
+                {
+                    "name": "MAX7219 Brightness",
+                    "unique_id": f"{self.device_id}_brightness",
+                    "object_id": f"{self.device_id}_brightness",
+                    "command_topic": f"{cmnd_root}/brightness",
+                    "state_topic": state_topic,
+                    "value_template": "{{ value_json.brightness }}",
+                    "min": 0,
+                    "max": 255,
+                    "step": 1,
+                    "mode": "box",
+                    "availability_topic": availability_topic,
+                    "availability_template": "{{ value_json.status }}",
+                    "payload_available": "online",
+                    "payload_not_available": "offline",
+                    "device": device,
+                },
+            ),
+            (
+                f"{self.discovery_prefix}/sensor/{self.device_id}_mqtt_status/config",
+                {
+                    "name": "MAX7219 MQTT Status",
+                    "unique_id": f"{self.device_id}_mqtt_status",
+                    "object_id": f"{self.device_id}_mqtt_status",
+                    "state_topic": availability_topic,
+                    "value_template": "{{ value_json.status }}",
+                    "json_attributes_topic": availability_topic,
+                    "device": device,
+                },
+            ),
+        ]
+
+    def publish_discovery(self, force=False):
+        if not self.discovery_enabled:
+            return
+        if self._discovery_published and not force:
+            return
+        for topic, payload in self._discovery_entries():
+            self._safe_publish(topic, payload, retain=True)
+        self._discovery_published = True

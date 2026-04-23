@@ -72,6 +72,23 @@ class TestMQTTHandler(unittest.TestCase):
         self.assertIn("connected", status)
         self.assertIn("reason", status)
 
+    def test_discovery_entries(self):
+        handler = MQTTHandler(
+            DummyEngine(),
+            settings={
+                "mqtt_namespace": "mirarus/max7219",
+                "mqtt_discovery": True,
+                "mqtt_discovery_prefix": "homeassistant",
+                "device_id": "max7219_display",
+            },
+        )
+        entries = handler._discovery_entries()
+        self.assertGreaterEqual(len(entries), 5)
+        first_topic, first_payload = entries[0]
+        self.assertTrue(first_topic.startswith("homeassistant/"))
+        self.assertIn("device", first_payload)
+        self.assertEqual(first_payload["device"]["identifiers"], ["max7219_display"])
+
     def test_disconnect_callback_v1_and_v2_signature(self):
         handler = MQTTHandler(DummyEngine(), settings={"mqtt_namespace": "mirarus/max7219"})
         handler.connected_event.set()
