@@ -51,6 +51,7 @@ class TestEngine(unittest.TestCase):
         self.assertIn("ok", diagnostics)
         self.assertIn("checks", diagnostics)
         self.assertIn("warnings", diagnostics)
+        self.assertIn("notes", diagnostics)
         self.assertIn("selected_device_path", diagnostics["checks"])
 
 

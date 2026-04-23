@@ -179,6 +179,7 @@ class DisplayEngine:
         }
 
         warnings = []
+        notes = []
         if not checks["spi_enabled"]:
             warnings.append("SPI interface disabled or /dev/spidev* not exposed")
         if not checks["selected_device_exists"]:
@@ -186,16 +187,17 @@ class DisplayEngine:
         if not checks["driver_loaded"]:
             warnings.append("luma/spidev python modules unavailable")
 
-        probable_wiring_issue = checks["spi_enabled"] and checks["selected_device_exists"] and checks["driver_loaded"]
-        if probable_wiring_issue:
-            warnings.append(
+        software_path_healthy = checks["spi_enabled"] and checks["selected_device_exists"] and checks["driver_loaded"]
+        if software_path_healthy:
+            notes.append(
                 "Software SPI path looks healthy. If display is still blank, verify DIN/CLK/CS/VCC/GND wiring and CE0/CE1 selection."
             )
 
         return {
-            "ok": len(warnings) == 0,
+            "ok": software_path_healthy,
             "checks": checks,
             "warnings": warnings,
+            "notes": notes,
         }
 
     def run(self):

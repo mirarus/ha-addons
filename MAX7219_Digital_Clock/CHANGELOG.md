@@ -2,6 +2,10 @@
 
 All notable changes to this add-on are documented in this file.
 
+## 2.6.3
+
+- Fixed pin diagnostics false-negative: `ok` now reflects critical SPI checks, while wiring guidance is returned as informational `notes`.
+
 ## 2.6.2
 
 - Added Web UI pin diagnostics endpoint (`/api/diagnostics/pins`) and action button.
