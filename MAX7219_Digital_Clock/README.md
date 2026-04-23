@@ -120,6 +120,8 @@ Not:
 
 - `mqtt_host`, `mqtt_port`, `mqtt_username`, `mqtt_password`
 - `mqtt_auto` (true ise host bos oldugunda otomatik `core-mosquitto` kullanir)
+- `mqtt_reconnect_min_delay`, `mqtt_reconnect_max_delay` (otomatik reconnect hizi)
+- `mqtt_initial_retry_delay`, `mqtt_retry_max_delay` (ilk baglanti deneme backoff hizi)
 - `mqtt_namespace` (varsayilan: `mirarus/max7219`)
 - `default_text`, `default_mode`, `default_effect`
 - `brightness`, `speed`

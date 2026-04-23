@@ -79,8 +79,10 @@ class MQTTHandler:
         if not mqtt:
             LOGGER.warning("paho-mqtt unavailable, MQTT running in noop mode")
         elif hasattr(self.client, "reconnect_delay_set"):
-            # Prevent tight reconnect loops when broker rejects auth.
-            self.client.reconnect_delay_set(min_delay=2, max_delay=60)
+            # Keep reconnect responsive but avoid tight loops.
+            min_delay = max(1, int(self.settings.get("mqtt_reconnect_min_delay", 1)))
+            max_delay = max(min_delay, int(self.settings.get("mqtt_reconnect_max_delay", 8)))
+            self.client.reconnect_delay_set(min_delay=min_delay, max_delay=max_delay)
         username = str(self.settings.get("mqtt_username") or "").strip()
         password = str(self.settings.get("mqtt_password") or "").strip()
         if username:
@@ -136,7 +138,9 @@ class MQTTHandler:
             LOGGER.exception("MQTT stop failed")
 
     def _connect_with_retry(self, host, port):
-        backoff = 1.0
+        backoff = float(self.settings.get("mqtt_initial_retry_delay", 0.5))
+        max_backoff = float(self.settings.get("mqtt_retry_max_delay", 5.0))
+        backoff = max(0.2, min(backoff, max_backoff))
         while not self.stop_event.is_set():
             try:
                 self.client.connect(host, port, keepalive=30)
@@ -146,7 +150,7 @@ class MQTTHandler:
                 self._update_connection_status(connected=False, reason="connect_exception", last_error=str(exc))
                 LOGGER.warning("MQTT connect failed (%s), retrying in %.1fs", exc, backoff)
                 time.sleep(backoff)
-                backoff = min(backoff * 2, 30.0)
+                backoff = min(backoff * 2, max_backoff)
 
     @staticmethod
     def _normalize_reason_code(reason_code):
