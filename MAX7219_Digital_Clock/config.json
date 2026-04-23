@@ -1,0 +1,20 @@
+{
+  "name": "MAX7219 Digital Clock",
+  "version": "1.0.0",
+  "slug": "MAX7219_Digital_Clock",
+  "description": "MAX7219 LED Matrix via Raspberry Pi GPIO",
+  "startup": "services",
+  "boot": "auto",
+  "host_network": true,
+  "arch": ["armv7", "aarch64"],
+  "privileged": ["SYS_RAWIO"],
+  "devices": ["/dev/spidev0.0"],
+  "options": {
+    "mqtt_host": "core-mosquitto",
+    "mqtt_topic": "mirarus/max7219"
+  },
+  "schema": {
+    "mqtt_host": "str",
+    "mqtt_topic": "str"
+  }
+}
