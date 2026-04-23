@@ -60,6 +60,16 @@ class TestMQTTHandler(unittest.TestCase):
         self.assertEqual(handler._command_from_topic("mirarus/max7219/cmnd/text"), "text")
         self.assertEqual(handler._parse_payload("brightness", "15"), 15)
 
+    def test_disconnect_callback_v1_and_v2_signature(self):
+        handler = MQTTHandler(DummyEngine(), settings={"mqtt_namespace": "mirarus/max7219"})
+        handler.connected_event.set()
+        handler._on_disconnect(None, None, 5)
+        self.assertFalse(handler.connected_event.is_set())
+
+        handler.connected_event.set()
+        handler._on_disconnect(None, None, 0, 7, None)
+        self.assertFalse(handler.connected_event.is_set())
+
 
 if __name__ == "__main__":
     unittest.main()

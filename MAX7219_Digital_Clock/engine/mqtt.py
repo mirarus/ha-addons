@@ -103,9 +103,18 @@ class MQTTHandler:
                 time.sleep(backoff)
                 backoff = min(backoff * 2, 30.0)
 
-    def _on_connect(self, client, userdata, flags, reason_code, properties=None):
+    @staticmethod
+    def _normalize_reason_code(reason_code):
+        try:
+            return int(reason_code)
+        except Exception:
+            return -1
+
+    def _on_connect(self, client, userdata, flags, reason_code=0, properties=None):
         _ = (userdata, flags, properties)
+        reason_code = self._normalize_reason_code(reason_code)
         if reason_code != 0:
+            self.connected_event.clear()
             LOGGER.warning("MQTT connected with non-zero code: %s", reason_code)
             return
         LOGGER.info("MQTT connected, subscribing to %s", self.topics["cmnd"])
@@ -114,8 +123,16 @@ class MQTTHandler:
         self.publish_state()
         self.publish_health(status="online")
 
-    def _on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties=None):
-        _ = (client, userdata, disconnect_flags, properties)
+    def _on_disconnect(self, client, userdata, *args):
+        # paho v1: (client, userdata, rc)
+        # paho v2: (client, userdata, disconnect_flags, reason_code, properties)
+        reason_code = 0
+        if len(args) == 1:
+            reason_code = args[0]
+        elif len(args) >= 2:
+            reason_code = args[1]
+        reason_code = self._normalize_reason_code(reason_code)
+        _ = (client, userdata)
         self.connected_event.clear()
         if self.stop_event.is_set():
             return
