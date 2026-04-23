@@ -104,6 +104,10 @@
         <tr><td>GND</td><td>GND (ornek Pin 6)</td><td>Ortak toprak zorunlu</td></tr>
       </tbody>
     </table>
+    <div class="row" style="margin-top:0.75rem;">
+      <div><button class="secondary" onclick="runPinDiagnostics()">Pin Teshisi Calistir</button></div>
+      <div style="grid-column: span 3;"><pre id="pinDiagBox">Pin diagnostics not run yet.</pre></div>
+    </div>
     <div class="footer">MQTT namespace: mirarus/max7219</div>
   </div>
 
@@ -196,6 +200,15 @@
     async function clearSchedules() {
       await api("api/schedules", "POST", { action: "clear" });
       await refreshState();
+    }
+
+    async function runPinDiagnostics() {
+      try {
+        const result = await api("api/diagnostics/pins");
+        byId("pinDiagBox").textContent = JSON.stringify(result, null, 2);
+      } catch (err) {
+        byId("pinDiagBox").textContent = `Diagnostics error: ${err.message}`;
+      }
     }
 
     async function deleteSchedule(id) {

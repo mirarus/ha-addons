@@ -185,3 +185,4 @@ SPI ile MAX7219 kullaniminda temel pinler:
   - `spi_device: 1` -> `GPIO7 (CE1, Pin 26)`
 
 Add-on icinden `spi_device` degistirerek CE0/CE1 secimi yapabilirsiniz.
+Web UI uzerindeki **Pin Teshisi Calistir** butonu ile yazilim tarafi SPI/pin kontrollerini gorebilirsiniz.

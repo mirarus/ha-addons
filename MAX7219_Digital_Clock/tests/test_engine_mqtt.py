@@ -45,6 +45,14 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(state["spi_device"], 1)
         self.assertIn("CE1", state["cs_pin"])
 
+    def test_pin_diagnostics_shape(self):
+        engine = DisplayEngine(settings={"spi_port": 0, "spi_device": 0})
+        diagnostics = engine.run_pin_diagnostics()
+        self.assertIn("ok", diagnostics)
+        self.assertIn("checks", diagnostics)
+        self.assertIn("warnings", diagnostics)
+        self.assertIn("selected_device_path", diagnostics["checks"])
+
 
 class DummyEngine:
     def __init__(self):

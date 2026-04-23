@@ -26,6 +26,10 @@ def _create_app(engine, mqtt_handler=None):
         mqtt_status = mqtt_handler.get_connection_status() if mqtt_handler else {"reason": "disabled"}
         return jsonify({"state": engine.get_state(), "health": engine.get_health(), "mqtt": mqtt_status})
 
+    @app.get("/api/diagnostics/pins")
+    def diagnostics_pins():
+        return jsonify(engine.run_pin_diagnostics())
+
     @app.post("/api/command")
     def command():
         payload = request.get_json(silent=True) or {}

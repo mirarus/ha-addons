@@ -1,6 +1,7 @@
 import copy
 import datetime as dt
 import logging
+from pathlib import Path
 import threading
 import time
 
@@ -165,6 +166,37 @@ class DisplayEngine:
             return
         with canvas(self.device) as draw:
             draw.text((0, 0), text, fill="white")
+
+    def run_pin_diagnostics(self):
+        selected_dev = f"/dev/spidev{self.spi_port}.{self.spi_device}"
+        checks = {
+            "spi_enabled": Path("/dev/spidev0.0").exists() or Path("/dev/spidev0.1").exists(),
+            "selected_device_path": selected_dev,
+            "selected_device_exists": Path(selected_dev).exists(),
+            "cs_pin": "GPIO8 (CE0)" if self.spi_device == 0 else "GPIO7 (CE1)",
+            "driver_loaded": all((max7219, spi, noop)),
+            "render_backend": "luma" if canvas is not None else "fallback",
+        }
+
+        warnings = []
+        if not checks["spi_enabled"]:
+            warnings.append("SPI interface disabled or /dev/spidev* not exposed")
+        if not checks["selected_device_exists"]:
+            warnings.append(f"Selected SPI device not found: {selected_dev}")
+        if not checks["driver_loaded"]:
+            warnings.append("luma/spidev python modules unavailable")
+
+        probable_wiring_issue = checks["spi_enabled"] and checks["selected_device_exists"] and checks["driver_loaded"]
+        if probable_wiring_issue:
+            warnings.append(
+                "Software SPI path looks healthy. If display is still blank, verify DIN/CLK/CS/VCC/GND wiring and CE0/CE1 selection."
+            )
+
+        return {
+            "ok": len(warnings) == 0,
+            "checks": checks,
+            "warnings": warnings,
+        }
 
     def run(self):
         LOGGER.info("DisplayEngine loop started")

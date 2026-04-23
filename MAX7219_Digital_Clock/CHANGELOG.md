@@ -2,6 +2,12 @@
 
 All notable changes to this add-on are documented in this file.
 
+## 2.6.2
+
+- Added Web UI pin diagnostics endpoint (`/api/diagnostics/pins`) and action button.
+- Added runtime SPI diagnostics checks for selected SPI device path and driver availability.
+- Added tests for diagnostics payload shape.
+
 ## 2.6.1
 
 - Added UI pin-connection guide for MAX7219 (`DIN`, `CK`, `CS`, `VCC`, `GND`).
