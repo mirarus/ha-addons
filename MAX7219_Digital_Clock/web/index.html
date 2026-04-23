@@ -94,24 +94,36 @@
   <script>
     function byId(id) { return document.getElementById(id); }
 
+    function resolveApiPath(path) {
+      const cleanPath = String(path || "").replace(/^\/+/, "");
+      const base = window.location.pathname.endsWith("/") ? window.location.pathname : `${window.location.pathname}/`;
+      return new URL(cleanPath, `${window.location.origin}${base}`).toString();
+    }
+
     async function api(path, method = "GET", body = null) {
-      const resp = await fetch(path, {
+      const resp = await fetch(resolveApiPath(path), {
         method,
         headers: { "Content-Type": "application/json" },
         body: body ? JSON.stringify(body) : null
       });
-      const data = await resp.json();
+      const raw = await resp.text();
+      let data = null;
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (err) {
+        throw new Error(`Invalid JSON response (${resp.status}): ${raw.slice(0, 180)}`);
+      }
       if (!resp.ok) throw new Error(data.error || "Request failed");
       return data;
     }
 
     async function sendCommand(command, value) {
-      await api("/api/command", "POST", { command, value });
+      await api("api/command", "POST", { command, value });
       await refreshState();
     }
 
     async function refreshState() {
-      const data = await api("/api/state");
+      const data = await api("api/state");
       byId("stateBox").textContent = JSON.stringify(data, null, 2);
       fillFormFromState(data.state || {});
       renderSchedules((data.state || {}).schedules || []);
@@ -139,22 +151,22 @@
         days: parseDays(byId("schDays").value),
         enabled: true
       };
-      await api("/api/schedules", "POST", payload);
+      await api("api/schedules", "POST", payload);
       await refreshState();
     }
 
     async function loadSchedules() {
-      const data = await api("/api/schedules");
+      const data = await api("api/schedules");
       renderSchedules(data.items || []);
     }
 
     async function clearSchedules() {
-      await api("/api/schedules", "POST", { action: "clear" });
+      await api("api/schedules", "POST", { action: "clear" });
       await refreshState();
     }
 
     async function deleteSchedule(id) {
-      await api(`/api/schedules/${encodeURIComponent(id)}`, "DELETE");
+      await api(`api/schedules/${encodeURIComponent(id)}`, "DELETE");
       await refreshState();
     }
 
