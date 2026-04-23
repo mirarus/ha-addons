@@ -53,6 +53,7 @@ class MQTTHandler:
         self.engine = engine
         self.settings = settings or {}
         self.mqtt_settings = self.settings.get("mqtt") if isinstance(self.settings.get("mqtt"), dict) else {}
+        self.telemetry_settings = self.settings.get("telemetry") if isinstance(self.settings.get("telemetry"), dict) else {}
         self.stop_event = threading.Event()
         self.connected_event = threading.Event()
         self.telemetry_thread = None
@@ -64,7 +65,12 @@ class MQTTHandler:
             "cmnd_root": f"{base_namespace}/cmnd",
             "stat_state": f"{base_namespace}/stat/state",
             "tele_health": f"{base_namespace}/tele/health",
+            "tele_update": f"{base_namespace}/tele/update",
         }
+        self.addon_version = str(self.settings.get("addon_version", "unknown"))
+        self.addon_latest_version = str(self.settings.get("addon_latest_version", self.addon_version))
+        self.addon_update_available = bool(self.settings.get("addon_update_available", False))
+        self.addon_update_source = str(self.settings.get("addon_update_source", "local"))
         self.discovery_enabled = self._to_bool(self._mqtt_opt("discovery", "mqtt_discovery", True))
         self.discovery_prefix = str(
             self._mqtt_opt("discovery_prefix", "mqtt_discovery_prefix", "homeassistant")
@@ -122,6 +128,21 @@ class MQTTHandler:
             return self.mqtt_settings.get(nested_key)
         return self.settings.get(legacy_key, default)
 
+    @staticmethod
+    def _as_bool(value, default=True):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+        return default
+
+    def _telemetry_interval(self):
+        raw = self.telemetry_settings.get("interval", self.settings.get("telemetry_interval", 15))
+        interval = int(raw)
+        return max(5, min(300, interval))
+
     def _resolve_broker(self):
         configured_host = str(self._mqtt_opt("host", "mqtt_host", "")).strip()
         if configured_host:
@@ -154,6 +175,7 @@ class MQTTHandler:
         self.stop_event.set()
         self._update_connection_status(connected=False, reason="stopping")
         try:
+            self.publish_update_event(event="shutdown")
             self.publish_health(status="offline")
             self.client.loop_stop()
             self.client.disconnect()
@@ -205,6 +227,7 @@ class MQTTHandler:
         self._update_connection_status(connected=True, code=0, reason="connected", last_error="")
         client.subscribe(self.topics["cmnd"], qos=1)
         self.publish_discovery(force=not self._discovery_published)
+        self.publish_update_event(event="startup")
         self.publish_state()
         self.publish_health(status="online")
 
@@ -291,12 +314,27 @@ class MQTTHandler:
             LOGGER.exception("MQTT publish failed for %s", topic)
 
     def _telemetry_loop(self):
-        interval = int(self.settings.get("telemetry_interval", 15))
-        interval = max(5, min(300, interval))
+        enabled = self._as_bool(self.telemetry_settings.get("enabled", True), default=True)
+        if not enabled:
+            return
+        interval = self._telemetry_interval()
         while not self.stop_event.is_set():
             self.publish_state()
             self.publish_health(status="online")
             self.stop_event.wait(interval)
+
+    def publish_update_event(self, event="startup"):
+        payload = {
+            "status": "online" if self.connected_event.is_set() else "offline",
+            "event": str(event),
+            "version": self.addon_version,
+            "latest_version": self.addon_latest_version,
+            "update_available": self.addon_update_available,
+            "update_source": self.addon_update_source,
+            "device_id": self.device_id,
+            "namespace": self.topics["cmnd_root"].rsplit("/cmnd", 1)[0],
+        }
+        self._safe_publish(self.topics["tele_update"], payload, retain=True)
 
     def _discovery_device(self):
         return {

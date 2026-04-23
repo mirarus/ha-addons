@@ -112,6 +112,41 @@ class TestMQTTHandler(unittest.TestCase):
         handler._on_disconnect(None, None, 0, 7, None)
         self.assertFalse(handler.connected_event.is_set())
 
+    def test_telemetry_interval_uses_nested_config(self):
+        handler = MQTTHandler(
+            DummyEngine(),
+            settings={"mqtt": {"namespace": "mirarus/max7219"}, "telemetry": {"enabled": True, "interval": 42}},
+        )
+        self.assertEqual(handler._telemetry_interval(), 42)
+
+    def test_publish_update_event_payload(self):
+        handler = MQTTHandler(
+            DummyEngine(),
+            settings={
+                "mqtt": {"namespace": "mirarus/max7219"},
+                "addon_version": "2.4.0",
+                "addon_latest_version": "2.5.0",
+                "addon_update_available": True,
+                "addon_update_source": "github",
+            },
+        )
+        captured = {}
+
+        def fake_publish(topic, payload, retain=False):
+            captured["topic"] = topic
+            captured["payload"] = payload
+            captured["retain"] = retain
+
+        handler._safe_publish = fake_publish
+        handler.publish_update_event(event="startup")
+        self.assertEqual(captured["topic"], "mirarus/max7219/tele/update")
+        self.assertEqual(captured["payload"]["version"], "2.4.0")
+        self.assertEqual(captured["payload"]["latest_version"], "2.5.0")
+        self.assertTrue(captured["payload"]["update_available"])
+        self.assertEqual(captured["payload"]["update_source"], "github")
+        self.assertEqual(captured["payload"]["event"], "startup")
+        self.assertTrue(captured["retain"])
+
 
 if __name__ == "__main__":
     unittest.main()

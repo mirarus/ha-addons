@@ -27,6 +27,7 @@ State topicleri:
 
 - `mirarus/max7219/stat/state`
 - `mirarus/max7219/tele/health`
+- `mirarus/max7219/tele/update` (startup/shutdown + addon version)
 
 ## MQTT Komut Ornekleri
 
@@ -125,9 +126,13 @@ Not:
 - `mqtt.reconnect_min_delay`, `mqtt.reconnect_max_delay` (otomatik reconnect hizi)
 - `mqtt.initial_retry_delay`, `mqtt.retry_max_delay` (ilk baglanti deneme backoff hizi)
 - `mqtt.namespace` (varsayilan: `mirarus/max7219`)
+- `telemetry.enabled`, `telemetry.interval`
 - `default_text`, `default_mode`, `default_effect`
 - `brightness`, `speed`
 - `cascaded`, `block_orientation`, `rotate`
+- `github.version_check` (GitHub latest release/tag kontrolu)
+- `github.repo` (ornek: `mirarus/ha-addons`)
+- `github.check_timeout` (saniye)
 
 ## MQTT Discovery
 
@@ -150,6 +155,16 @@ Discovery prefix varsayilan olarak `homeassistant` kullanir.
 3. Port fallback `1883`
 
 Web UI state ekraninda `mqtt.credential_source` alani ile hangi kaynagin kullanildigi gorulebilir.
+
+## GitHub Version Check
+
+Add-on startup sirasinda `github.version_check: true` ise `github.repo` icin latest release/tag kontrol edilir.
+Sonuc `tele/update` payload icine su alanlarla eklenir:
+
+- `version` (lokal add-on surumu)
+- `latest_version` (GitHub'dan bulunan surum)
+- `update_available` (`latest_version > version`)
+- `update_source` (`github` veya `local`)
 
 ## Operasyon Notlari
 

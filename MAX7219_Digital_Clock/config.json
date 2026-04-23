@@ -1,6 +1,6 @@
 {
   "name": "MAX7219 Display Engine",
-  "version": "2.3.3",
+  "version": "2.5.2",
   "slug": "max7219_clock",
   "description": "Production-ready MAX7219 display engine with MQTT, effects, scheduler and Ingress UI",
   "arch": ["aarch64", "armv7", "armhf"],
@@ -35,7 +35,15 @@
       "password": "",
       "namespace": "mirarus/max7219"
     },
-    "telemetry_interval": 15,
+    "telemetry": {
+      "enabled": true,
+      "interval": 15
+    },
+    "github": {
+      "version_check": true,
+      "repo": "mirarus/ha-addons",
+      "check_timeout": 3
+    },  
     "default_text": "HELLO",
     "default_mode": "text",
     "default_effect": "static",
@@ -60,7 +68,15 @@
       "password": "password?",
       "namespace": "str"
     },
-    "telemetry_interval": "int(5,300)",
+    "telemetry": {
+      "enabled": "bool",
+      "interval": "int(5,300)"
+    },
+    "github": {
+      "version_check": "bool",
+      "repo": "str",
+      "check_timeout": "int(1,15)"
+    },
     "default_text": "str",
     "default_mode": "list(text|clock)",
     "default_effect": "list(static|scroll|marquee|blink|invert|wave)",

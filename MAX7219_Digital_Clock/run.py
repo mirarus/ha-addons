@@ -25,6 +25,21 @@ def load_options():
         return {}
 
 
+def load_addon_version():
+    candidates = [Path("/app/config.json"), Path(__file__).resolve().parent / "config.json"]
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        try:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+            version = str(payload.get("version", "")).strip()
+            if version:
+                return version
+        except Exception:
+            continue
+    return "unknown"
+
+
 def _to_bool(value, default=False):
     if isinstance(value, bool):
         return value
@@ -33,6 +48,40 @@ def _to_bool(value, default=False):
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "on"}
     return default
+
+
+def _safe_int(value, default):
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _version_tuple(value):
+    text = str(value or "").strip()
+    if text.startswith(("v", "V")):
+        text = text[1:]
+    parts = []
+    for chunk in text.split("."):
+        digits = ""
+        for char in chunk:
+            if char.isdigit():
+                digits += char
+            else:
+                break
+        if digits == "":
+            parts.append(0)
+        else:
+            parts.append(int(digits))
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
+
+
+def is_newer_version(latest, current):
+    if not latest or not current:
+        return False
+    return _version_tuple(latest) > _version_tuple(current)
 
 
 def _extract_mqtt_service_data(payload):
@@ -89,11 +138,62 @@ def fetch_supervisor_mqtt_service(timeout=3):
         return {}
 
 
+def _extract_github_tag(payload):
+    if not isinstance(payload, dict):
+        return ""
+    for key in ("tag_name", "name"):
+        value = str(payload.get(key, "")).strip()
+        if value:
+            return value
+    return ""
+
+
+def fetch_github_latest_version(repo, timeout=3):
+    repo_text = str(repo or "").strip().strip("/")
+    if not repo_text or "/" not in repo_text:
+        return ""
+
+    url_latest = f"https://api.github.com/repos/{repo_text}/releases/latest"
+    url_tags = f"https://api.github.com/repos/{repo_text}/tags"
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": "max7219-addon"}
+
+    try:
+        if requests:
+            response = requests.get(url_latest, headers=headers, timeout=timeout)
+            if response.status_code == 200:
+                tag = _extract_github_tag(response.json())
+                if tag:
+                    return tag
+            tags_resp = requests.get(url_tags, headers=headers, timeout=timeout)
+            if tags_resp.status_code == 200 and isinstance(tags_resp.json(), list) and tags_resp.json():
+                return str(tags_resp.json()[0].get("name", "")).strip()
+            return ""
+
+        req = url_request.Request(url_latest, headers=headers, method="GET")
+        with url_request.urlopen(req, timeout=timeout) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            tag = _extract_github_tag(payload)
+            if tag:
+                return tag
+
+        req_tags = url_request.Request(url_tags, headers=headers, method="GET")
+        with url_request.urlopen(req_tags, timeout=timeout) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            if isinstance(payload, list) and payload:
+                return str(payload[0].get("name", "")).strip()
+    except Exception as exc:
+        LOGGER.info("GitHub version check unavailable: %s", exc)
+    return ""
+
+
 def resolve_runtime_options(raw_options):
     options = dict(raw_options or {})
     mqtt_options = options.get("mqtt")
     if not isinstance(mqtt_options, dict):
         mqtt_options = {}
+    github_options = options.get("github")
+    if not isinstance(github_options, dict):
+        github_options = {}
 
     auto_enabled = _to_bool(mqtt_options.get("auto", True), default=True)
     source = "manual"
@@ -116,6 +216,22 @@ def resolve_runtime_options(raw_options):
 
     mqtt_options["_source"] = source
     options["mqtt"] = mqtt_options
+    options["addon_version"] = load_addon_version()
+
+    github_check_enabled = _to_bool(
+        github_options.get("version_check", options.get("github_version_check", True)),
+        default=True,
+    )
+    github_repo = str(github_options.get("repo", options.get("github_repo", "mirarus/ha-addons"))).strip()
+    github_timeout = _safe_int(
+        github_options.get("check_timeout", options.get("github_check_timeout", 3)),
+        3,
+    )
+
+    latest_version = fetch_github_latest_version(github_repo, timeout=github_timeout) if github_check_enabled else ""
+    options["addon_latest_version"] = latest_version or options["addon_version"]
+    options["addon_update_available"] = is_newer_version(latest_version, options["addon_version"])
+    options["addon_update_source"] = "github" if latest_version else "local"
     return options
 
 
@@ -147,7 +263,7 @@ def main():
             engine,
             mqtt_handler=mqtt_handler,
             host="0.0.0.0",
-            port=int(options.get("web_port", 8099)),
+            port=8099,
         )
         engine.run()
     finally:
