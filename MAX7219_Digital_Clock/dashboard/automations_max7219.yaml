@@ -1,0 +1,41 @@
+- id: max7219_clock_at_midnight
+  alias: MAX7219 - Clock mode at midnight
+  trigger:
+    - platform: time
+      at: "00:00:00"
+  action:
+    - service: mqtt.publish
+      data:
+        topic: mirarus/max7219/cmnd/mode
+        payload: "clock"
+
+- id: max7219_morning_text
+  alias: MAX7219 - Morning text
+  trigger:
+    - platform: time
+      at: "08:00:00"
+  action:
+    - service: mqtt.publish
+      data:
+        topic: mirarus/max7219/cmnd/mode
+        payload: "text"
+    - service: mqtt.publish
+      data:
+        topic: mirarus/max7219/cmnd/effect
+        payload: "scroll"
+    - service: mqtt.publish
+      data:
+        topic: mirarus/max7219/cmnd/text
+        payload: "GUNAYDIN"
+
+- id: max7219_set_schedule_from_automation
+  alias: MAX7219 - Upsert schedule event
+  trigger:
+    - platform: homeassistant
+      event: start
+  action:
+    - service: mqtt.publish
+      data:
+        topic: mirarus/max7219/cmnd/schedule
+        payload: >
+          {"id":"weekday-news","time":"09:00","text":"HABER SAATI","mode":"text","effect":"wave","duration":180,"days":[1,2,3,4,5],"brightness":8}

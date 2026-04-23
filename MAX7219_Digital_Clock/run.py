@@ -1,34 +1,59 @@
-import os
 import json
-from luma.led_matrix.device import max7219
-from luma.core.interface.serial import spi, noop
-from luma.core.render import canvas
-import paho.mqtt.client as mqtt
-import time
+import logging
+import signal
+from pathlib import Path
 
-# HA options.json oku
-with open("/data/options.json") as f:
-    options = json.load(f)
+from engine.core import DisplayEngine
+from engine.mqtt import MQTTHandler
+from engine.webui import start_webui
 
-MQTT_HOST = options.get("mqtt_host", "core-mosquitto")
-MQTT_TOPIC = options.get("mqtt_topic", "mirarus/max7219")
+LOGGER = logging.getLogger(__name__)
 
-serial = spi(port=0, device=0, gpio=noop())
-device = max7219(serial, cascaded=4)
 
-current_text = "--:--"
+def load_options():
+    options_path = Path("/data/options.json")
+    if not options_path.exists():
+        return {}
+    try:
+        return json.loads(options_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        LOGGER.warning("Could not parse options.json: %s", exc)
+        return {}
 
-def on_message(client, userdata, msg):
-    global current_text
-    current_text = msg.payload.decode()
 
-client = mqtt.Client()
-client.connect(MQTT_HOST, 1883)
-client.subscribe(MQTT_TOPIC)
-client.on_message = on_message
-client.loop_start()
+def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    )
+    options = load_options()
+    engine = DisplayEngine(settings=options)
+    mqtt_handler = MQTTHandler(engine, settings=options)
+    webui = None
 
-while True:
-    with canvas(device) as draw:
-        draw.text((0, 0), current_text, fill="white")
-    time.sleep(0.1)
+    def shutdown_handler(signum, frame):
+        _ = frame
+        LOGGER.info("Signal %s received, shutting down", signum)
+        engine.stop()
+
+    signal.signal(signal.SIGTERM, shutdown_handler)
+    signal.signal(signal.SIGINT, shutdown_handler)
+
+    try:
+        mqtt_handler.start()
+        webui = start_webui(
+            engine,
+            mqtt_handler=mqtt_handler,
+            host="0.0.0.0",
+            port=int(options.get("web_port", 8099)),
+        )
+        engine.run()
+    finally:
+        if webui:
+            webui.stop()
+        mqtt_handler.stop()
+        LOGGER.info("MAX7219 service stopped")
+
+
+if __name__ == "__main__":
+    main()

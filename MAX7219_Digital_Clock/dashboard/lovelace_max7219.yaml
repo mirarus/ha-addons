@@ -1,0 +1,55 @@
+type: vertical-stack
+cards:
+  - type: entities
+    title: MAX7219 Input Helpers
+    entities:
+      - entity: input_text.max7219_text
+      - entity: input_select.max7219_mode
+      - entity: input_select.max7219_effect
+      - entity: input_number.max7219_brightness
+
+  - type: horizontal-stack
+    cards:
+      - type: button
+        name: Push Text
+        tap_action:
+          action: call-service
+          service: mqtt.publish
+          data:
+            topic: mirarus/max7219/cmnd/text
+            payload: "{{ states('input_text.max7219_text') }}"
+
+      - type: button
+        name: Push Mode
+        tap_action:
+          action: call-service
+          service: mqtt.publish
+          data:
+            topic: mirarus/max7219/cmnd/mode
+            payload: "{{ states('input_select.max7219_mode') }}"
+
+      - type: button
+        name: Push Effect
+        tap_action:
+          action: call-service
+          service: mqtt.publish
+          data:
+            topic: mirarus/max7219/cmnd/effect
+            payload: "{{ states('input_select.max7219_effect') }}"
+
+  - type: button
+    name: Push Brightness
+    tap_action:
+      action: call-service
+      service: mqtt.publish
+      data:
+        topic: mirarus/max7219/cmnd/brightness
+        payload: "{{ states('input_number.max7219_brightness') | int }}"
+
+  - type: markdown
+    content: |
+      **State topic**
+      `mirarus/max7219/stat/state`
+
+      **Health topic**
+      `mirarus/max7219/tele/health`

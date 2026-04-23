@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAX7219 Control</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 1rem; background: #101214; color: #e9edf1; }
+    .panel { max-width: 880px; margin: auto; padding: 1rem; background: #1b1f24; border-radius: 8px; }
+    h1, h2 { margin-top: 0; }
+    .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 0.75rem; }
+    .row > div { display: flex; flex-direction: column; gap: 0.25rem; }
+    label { font-size: 0.85rem; color: #9fb0c3; }
+    input, select, button, textarea {
+      padding: 0.55rem; border-radius: 6px; border: 1px solid #344150; background: #14181d; color: #ecf2f9;
+    }
+    button { cursor: pointer; background: #285d9f; border: none; }
+    button.secondary { background: #465361; }
+    pre { background: #0f1317; padding: 0.75rem; border-radius: 6px; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+    th, td { border-bottom: 1px solid #2f3944; padding: 0.5rem; text-align: left; }
+    .footer { font-size: 0.9rem; color: #9fb0c3; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h1>MAX7219 Display Control</h1>
+    <div class="row">
+      <div>
+        <label for="text">Text</label>
+        <input id="text" placeholder="Message">
+      </div>
+      <div>
+        <label for="mode">Mode</label>
+        <select id="mode">
+          <option value="text">text</option>
+          <option value="clock">clock</option>
+        </select>
+      </div>
+      <div>
+        <label for="effect">Effect</label>
+        <select id="effect">
+          <option value="static">static</option>
+          <option value="scroll">scroll</option>
+          <option value="blink">blink</option>
+          <option value="invert">invert</option>
+          <option value="wave">wave</option>
+        </select>
+      </div>
+      <div>
+        <label for="brightness">Brightness (0-255)</label>
+        <input id="brightness" type="number" min="0" max="255" value="5">
+      </div>
+    </div>
+    <div class="row">
+      <div><button onclick="sendCommand('text', byId('text').value)">Set Text</button></div>
+      <div><button onclick="sendCommand('mode', byId('mode').value)">Set Mode</button></div>
+      <div><button onclick="sendCommand('effect', byId('effect').value)">Set Effect</button></div>
+      <div><button onclick="sendCommand('brightness', Number(byId('brightness').value))">Set Brightness</button></div>
+    </div>
+
+    <h2>Scheduler</h2>
+    <div class="row">
+      <div><label for="schTime">Time (HH:MM)</label><input id="schTime" value="08:00"></div>
+      <div><label for="schText">Text</label><input id="schText" value="GOOD MORNING"></div>
+      <div><label for="schMode">Mode</label><select id="schMode"><option>text</option><option>clock</option></select></div>
+      <div><label for="schEffect">Effect</label><select id="schEffect"><option>static</option><option>scroll</option><option>blink</option><option>invert</option><option>wave</option></select></div>
+    </div>
+    <div class="row">
+      <div><label for="schDuration">Duration (sec)</label><input id="schDuration" type="number" min="1" max="3600" value="60"></div>
+      <div><label for="schBrightness">Brightness</label><input id="schBrightness" type="number" min="0" max="255" value="5"></div>
+      <div><label for="schDays">Days (0-6 comma)</label><input id="schDays" value="1,2,3,4,5"></div>
+      <div><button onclick="addSchedule()">Add/Update Schedule</button></div>
+    </div>
+    <div class="row">
+      <div><button class="secondary" onclick="loadSchedules()">Refresh Schedules</button></div>
+      <div><button class="secondary" onclick="clearSchedules()">Clear All</button></div>
+      <div><button class="secondary" onclick="refreshState()">Refresh State</button></div>
+      <div><button class="secondary" onclick="showHelp()">Payload Help</button></div>
+    </div>
+
+    <table id="scheduleTable">
+      <thead>
+        <tr><th>ID</th><th>Time</th><th>Text</th><th>Mode</th><th>Effect</th><th>Action</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>State</h2>
+    <pre id="stateBox">Loading...</pre>
+    <div class="footer">MQTT namespace: mirarus/max7219</div>
+  </div>
+
+  <script>
+    function byId(id) { return document.getElementById(id); }
+
+    async function api(path, method = "GET", body = null) {
+      const resp = await fetch(path, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : null
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Request failed");
+      return data;
+    }
+
+    async function sendCommand(command, value) {
+      await api("/api/command", "POST", { command, value });
+      await refreshState();
+    }
+
+    async function refreshState() {
+      const data = await api("/api/state");
+      byId("stateBox").textContent = JSON.stringify(data, null, 2);
+      fillFormFromState(data.state || {});
+      renderSchedules((data.state || {}).schedules || []);
+    }
+
+    function fillFormFromState(state) {
+      if (state.text !== undefined) byId("text").value = state.text;
+      if (state.mode) byId("mode").value = state.mode;
+      if (state.effect) byId("effect").value = state.effect;
+      if (state.brightness !== undefined) byId("brightness").value = state.brightness;
+    }
+
+    function parseDays(input) {
+      return input.split(",").map(x => Number(x.trim())).filter(x => Number.isInteger(x) && x >= 0 && x <= 6);
+    }
+
+    async function addSchedule() {
+      const payload = {
+        time: byId("schTime").value,
+        text: byId("schText").value,
+        mode: byId("schMode").value,
+        effect: byId("schEffect").value,
+        duration: Number(byId("schDuration").value),
+        brightness: Number(byId("schBrightness").value),
+        days: parseDays(byId("schDays").value),
+        enabled: true
+      };
+      await api("/api/schedules", "POST", payload);
+      await refreshState();
+    }
+
+    async function loadSchedules() {
+      const data = await api("/api/schedules");
+      renderSchedules(data.items || []);
+    }
+
+    async function clearSchedules() {
+      await api("/api/schedules", "POST", { action: "clear" });
+      await refreshState();
+    }
+
+    async function deleteSchedule(id) {
+      await api(`/api/schedules/${encodeURIComponent(id)}`, "DELETE");
+      await refreshState();
+    }
+
+    function renderSchedules(items) {
+      const tbody = byId("scheduleTable").querySelector("tbody");
+      tbody.innerHTML = "";
+      for (const item of items) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${item.id}</td>
+          <td>${item.time}</td>
+          <td>${item.text}</td>
+          <td>${item.mode}</td>
+          <td>${item.effect}</td>
+          <td><button class="secondary" onclick="deleteSchedule('${item.id}')">Delete</button></td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function showHelp() {
+      alert("Schedule supports actions: upsert(default), list, set, delete, clear. MQTT topic: mirarus/max7219/cmnd/schedule");
+    }
+
+    refreshState().catch(err => {
+      byId("stateBox").textContent = `Error: ${err.message}`;
+    });
+  </script>
+</body>
+</html>

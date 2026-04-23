@@ -1,3 +1,7 @@
 luma.led_matrix
 paho-mqtt
 spidev
+flask
+requests
+feedparser
+pillow
